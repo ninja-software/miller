@@ -29,31 +29,44 @@ type CategoryItem struct {
 }
 
 // NewColumns initialises the cascading list
-func NewColumns(dir []string) *Columns {
+func NewColumns(dir []string) (*Columns, error) {
 	c := &Columns{
 		Categories:    []*Category{},
 		CurrentFolder: dir,
 	}
 
-	items := c.ListDir(dir)
+	items, err := c.ListDir(dir)
+	if err != nil {
+		return nil, err
+	}
 	c.Categories = append(c.Categories, &Category{
 		Items:         items,
 		Path:          dir,
 		IsLowestLevel: true,
 	})
-	return c
-
+	return c, nil
 }
 
 // Descend moves down a level in the tree, appending the category and folder to the struct
-func (c *Columns) Descend(dir string) {
+func (c *Columns) Descend(dir string) error {
+	args := append(c.CurrentFolder, dir)
+	file, err := os.Open(path.Join(args...))
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
 	c.CurrentFolder = append(c.CurrentFolder, dir)
-	items := c.ListDir(c.CurrentFolder)
+	items, err := c.ListDir(c.CurrentFolder)
+	if err != nil {
+		return err
+	}
 	c.Categories = append(c.Categories, &Category{
 		Items:         items,
 		Path:          c.CurrentFolder,
 		IsLowestLevel: false,
 	})
+	return nil
 }
 
 // Ascend moves up a level in the tree, removing the last category and folder in the struct
@@ -66,16 +79,16 @@ func (c *Columns) Ascend() {
 }
 
 // ListDir returns all the folders in directory
-func (c *Columns) ListDir(directory []string) []*CategoryItem {
+func (c *Columns) ListDir(directory []string) ([]*CategoryItem, error) {
 	dir, err := os.Open(path.Join(directory...))
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	defer dir.Close()
 
 	entries, err := dir.Readdir(0)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	list := []*CategoryItem{}
@@ -92,5 +105,5 @@ func (c *Columns) ListDir(directory []string) []*CategoryItem {
 		}
 		list = append(list, f)
 	}
-	return list
+	return list, nil
 }
